@@ -11,138 +11,103 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  // Firestore database instance
   FirebaseFirestore db = FirebaseFirestore.instance;
 
+  // List of task descriptions
   final List<String> tasks = <String>[];
 
+  // Corresponding checklist status for each task
   final List<bool> checkboxes = List.generate(8, (index) => false);
 
-  bool isChecked = false;
-
+  // FocusNode to manage the keyboard focus for text fields
   FocusNode _textFieldFocusNode = FocusNode();
 
-  /*
-  The TextEditingController class allows us to 
-  grab the input from the TextField() widget
-  This will be used later on to store the value
-  in the database.
-  */
-
+  // Controller to read text input for new tasks
   TextEditingController nameController = TextEditingController();
 
+  /// Adds a new task to Firestore and updates the local list
   void addItemToList() async {
     final String taskName = nameController.text;
 
-    //Add to the Firestore collection
+    // Add task to Firestore
     await db.collection('tasks').add({
       'name': taskName,
       'completed': false,
       'timestamp': FieldValue.serverTimestamp(),
     });
 
+    // Update local list of tasks and checkboxes
     setState(() {
       tasks.insert(0, taskName);
       checkboxes.insert(0, false);
     });
   }
 
+  /// Removes a task from Firestore and the local list
   void removeItem(int index) async {
-    //Get the task name to be removed
     String taskNameToRemove = tasks[index];
 
-    //Remove the task from the Firestore database
+    // Query Firestore for the task and delete it
     QuerySnapshot querySnapshot = await db
         .collection('tasks')
         .where('name', isEqualTo: taskNameToRemove)
         .get();
 
     if (querySnapshot.size > 0) {
-      DocumentSnapshot documentSnapshot = querySnapshot.docs[0];
-
-      //Update the completed field to the new completion status
-      await documentSnapshot.reference.delete();
+      await querySnapshot.docs[0].reference.delete();
     }
 
-    //Remove task from the task list and the checkboxes list
+    // Update local lists
     setState(() {
       tasks.removeAt(index);
       checkboxes.removeAt(index);
     });
   }
 
+  /// Clears the text field
   void clearTextField() {
     setState(() {
       nameController.clear();
     });
   }
 
+  /// Fetches tasks from Firestore and updates the local list
   Future<void> fetchTasksFromFirestore() async {
-    //Get a reference to the 'tasks' collection in Firestore
-
     CollectionReference tasksCollection = db.collection('tasks');
-
-    //Fetch the documents (tasks) from the collection
     QuerySnapshot querySnapshot = await tasksCollection.get();
-
-    //Create an empty list to store the fetched tasks names
     List<String> fetchedTasks = [];
 
-    //Look through each doc (task) in the querySnapshot object
-
     for (QueryDocumentSnapshot docSnapshot in querySnapshot.docs) {
-      //Getting the task name from the document's data
-      String taskName = docSnapshot.get('name');
-
-      //Getting the completion status of the task
-      bool completed = docSnapshot.get('completed');
-
-      //Add the task name to the list of fetched tasks
-      fetchedTasks.add(taskName);
+      fetchedTasks.add(docSnapshot.get('name'));
     }
 
-    //Update the state to reflect the fetched tasks
-
     setState(() {
-      tasks.clear(); // Clear the existing task list
+      tasks.clear();
       tasks.addAll(fetchedTasks);
     });
   }
 
-  //Asynchronous function to update the completion status of the task in Firestore
-
+  /// Updates a task's completion status in Firestore and locally
   Future<void> updateTaskCompletionStatus(
       String taskName, bool completed) async {
-    //Get a reference to the 'tasks' collection in Firestore
     CollectionReference tasksCollection = db.collection('tasks');
-
-    //Query Firestore for documents (tasks) with the given task name
     QuerySnapshot querySnapshot =
         await tasksCollection.where('name', isEqualTo: taskName).get();
 
-    //If a matching task document is found
     if (querySnapshot.size > 0) {
-      //Get a reference to the first matching document
-      DocumentSnapshot documentSnapshot = querySnapshot.docs[0];
-
-      //Update the completed field to the new completion status
-      await documentSnapshot.reference.update({'completed': completed});
+      await querySnapshot.docs[0].reference.update({'completed': completed});
     }
 
     setState(() {
-      //find the index of the task in the task list
       int taskIndex = tasks.indexWhere((task) => task == taskName);
-
-      //Update the corresponding checkbox value in the checkboxes list
       checkboxes[taskIndex] = completed;
     });
   }
 
-//Override the initState method of the State class
   @override
   void initState() {
     super.initState();
-
-    //Call the function to fetched the tasks from the database
     fetchTasksFromFirestore();
   }
 
@@ -151,6 +116,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         /*
+
             Rows() and Columns() both have the mainAxisAlignment 
             property we can utilize to space out their child 
             widgets to our desired format.
@@ -160,10 +126,12 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             SizedBox(
               /*
+ 
             SizedBox allows us to control the vertical 
             and horizontal dimensions by manipulating the 
             height or width property, or both.
             */
+
               height: 70,
               child: Image.asset('assets/rdplogo.png'),
             ),
@@ -188,6 +156,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
                   child:
+
                       /*
           The TableCalendar() widget below is installed via 
           "flutter pub get table_calendar" or by adding the package 
@@ -272,30 +241,26 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Container(
-                      child: TextField(
-                        controller: nameController,
-                        focusNode: _textFieldFocusNode,
-                        style: TextStyle(fontSize: 18),
-                        maxLength: 20,
-                        decoration: InputDecoration(
-                          contentPadding: EdgeInsets.all(16),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          labelText: 'Add To-Do List Item',
-                          labelStyle: TextStyle(
-                            fontSize: 16,
-                            color: Colors.blue,
-                          ),
-                          hintText: 'Enter your task here',
-                          hintStyle:
-                              TextStyle(fontSize: 16, color: Colors.grey),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide:
-                                BorderSide(color: Colors.blue, width: 2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                    child: TextField(
+                      controller: nameController,
+                      focusNode: _textFieldFocusNode,
+                      style: TextStyle(fontSize: 18),
+                      maxLength: 20,
+                      decoration: InputDecoration(
+                        contentPadding: EdgeInsets.all(16),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        labelText: 'Add To-Do List Item',
+                        labelStyle: TextStyle(
+                          fontSize: 16,
+                          color: Colors.blue,
+                        ),
+                        hintText: 'Enter your task here',
+                        hintStyle: TextStyle(fontSize: 16, color: Colors.grey),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.blue, width: 2),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
@@ -304,6 +269,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     icon: Icon(Icons.clear),
                     onPressed: () {
                       clearTextField();
+                      // Clear the text field to allow for a new task entry
                     },
                   ),
                 ],
@@ -314,13 +280,12 @@ class _MyHomePageState extends State<MyHomePage> {
               child: ElevatedButton(
                 onPressed: () {
                   addItemToList();
-                  _textFieldFocusNode.unfocus();
-                  clearTextField();
-                  //This will unfocus the keyboard, closing it.
+                  _textFieldFocusNode.unfocus(); // Close the keyboard
+                  clearTextField(); // Clear the text field after adding item
                 },
-                child: Text('Add To-Do Item'),
+                child: Text('Add To-Do'),
               ),
-            )
+            ),
           ],
         ),
       ),
